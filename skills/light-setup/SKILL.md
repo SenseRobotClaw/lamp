@@ -57,7 +57,7 @@ Content-Type: application/json
 Accept: application/json
 CLIENT-TYPE: APP
 
-{"app_id":"L1Claw","phone":"<手机号>","verify_code":"<用户告诉你的验证码>"}
+{"app_id":"LIGHT_APP","phone":"<手机号>","verify_code":"<用户告诉你的验证码>"}
 ```
 
 **判断成功：响应体 `code == 100000` 代表调用成功。** 不要看 HTTP 状态码，看响应体里的 `code`。
@@ -70,7 +70,7 @@ CLIENT-TYPE: APP
 
 ```python
 body = json.dumps({
-    "app_id": "L1Claw",
+    "app_id": "LIGHT_APP",
     "phone": "<手机号>",
     "verify_code": "<用户告诉你的验证码>"   # ← 只能从这里来，只能用一次
 })
