@@ -1,21 +1,23 @@
 ---
-name: light-setup
-description: 安装&控制元萝卜光翼灯 SenseRobotLamp：开关灯、亮度色温、音量、感应、TTS语音朗读（顺口溜/故事/儿歌等）、拍照、拍照判题批改作业。遇到台灯/光翼灯/开灯/关灯/亮度/色温/音量/拍照取图/坐姿报告/学习报告/语音朗读/播报等时使用。前置依赖：pip install paho-mqtt。
+name: ylb-lamp-setup
+description: 安装&控制元萝卜光翼灯/龙虾灯：开关灯、调节亮度色温音量、切换聚光泛光灯光模式、语音朗读文本、读取坐姿专注报告、拍照取图。遇到台灯/光翼灯/龙虾灯/开灯/关灯/亮度/色温/音量调节/聚光灯模式/泛光灯模式/拍照取图/坐姿报告/专注报告/学习报告/语音朗读等时使用。前置依赖：pip install paho-mqtt。
 ---
 
 ## 功能概览
 
-- **灯控**：开关灯、亮度、色温、模式、音量、感应开关等
-- **语音朗读**：通过 MQTT 发送文字，让台灯朗读出来，支持顺口溜、绕口令、念故事、说笑话、播放儿歌等（skill-tts-chinese）
-- **坐姿报告**：通过摄像头监测用户坐姿，提供改善建议
-- **学习报告**：生成学习报告，包括学习时长、专注度等
+- **灯控**：开关灯,调节亮度、色温、音量,切换聚光灯/专注阅读模式、泛光灯/标准照明模式等
+- **语音朗读**：发送文字，让台灯朗读出来，支持顺口溜、绕口令、念故事、说笑话、播放儿歌等
+- **用灯时长**：统计当日或7天内的用灯时长
+- **坐姿报告**：统计当日或7天内的用户坐姿情况，正常、前倾、左倾、右倾的占比
+- **学习报告**：统计当日或7天内的专注学习时长及占比，包括学习时长、专注时长，专注学习占比
 - **拍照取图**：通过台灯摄像头拍照并返回图片（lamp_photo.py）
 - **监控守护进程**（可选）：MQTT 持续订阅台灯状态，检测到变化时自动推送飞书通知
 - **首次使用**：需要绑定手机号（问手机 → 发验证码 → 你把验证码告诉我 → 完成绑定）
+- **卸载技能**：需要先终止守护进程，再彻底删除 session.json
 
 # 光翼灯控制
 
-## 核心经验（已实测，2026-04-24）
+## 核心经验
 
 ### ✅ 登录 → MQTT 开灯 全链路验证成功
 
@@ -29,12 +31,12 @@ description: 安装&控制元萝卜光翼灯 SenseRobotLamp：开关灯、亮度
 
 ### 第二步：发验证码（仅此一步，不要碰任何响应数据）
 
-**发验证码**：请求发出去，告诉用户"验证码已发到手机，请查看短信后把验证码告诉我"，**然后什么都不做，停在这里等用户回复。绝对不要自己调用登录接口，绝对不要自己去查设备信息。**
-
-vercode 成功后可能返回 `{"code":101433,"data":null}`（发短信太频繁）：
+MQTT 接口 vercode 只是"向用户手机发验证码短信"这一件事，
+**只检查发送是否成功** 
+发送后可能返回 `{"code":101433,"data":null}`（发短信太频繁）：
 - 等 30s 重试，最多 2 次，仍失败 → 告知用户"短信发送失败，稍等一会儿再试"
 
-**⚠️ vercode 响应里没有任何东西需要你处理。** 你不需要判断 verify_code 是否存在，不需要读取它，不需要用它做任何事。vercode 只是"发短信"这一件事，**发出去就算完成**。
+请求发出去，告诉用户"验证码已发到手机，请查看短信后把验证码告诉我"，**然后什么都不做，停在这里等用户回复。绝对不要自己调用登录接口，绝对不要自己去查设备信息。**
 
 ### 第三步：等用户告知验证码（停住，不要做任何 API 调用）
 
@@ -310,92 +312,6 @@ python3 $WORKDIR/scripts/lamp_photo.py
 **相关文件**：
 - 脚本：`$WORKDIR/scripts/lamp_photo.py`
 - 图片保存目录：`$WORKDIR/.lightwing/photos/`
-
-## 拍照判题（photo-judge）
-
-**触发词**：拍照判题 / 批改作业 / 检查答案 / 智能批改 / 拍一下看看对不对
-
-通过智能台灯摄像头拍照，调用商汤 AI 判题服务自动批改试卷，返回每道题的对错、正确答案、用户答案和错因分析。
-
-### 前置依赖：lamp_cloudcontrol 服务
-
-**服务根目录**：
-```
-~/.openclaw/workspace/imported/openclaw4lamp-main/lamp_cloudcontrol/
-```
-
-**启动服务**：
-```bash
-cd ~/.openclaw/workspace/imported/openclaw4lamp-main/lamp_cloudcontrol
-pkill -f "node.*server.js" 2>/dev/null; sleep 1
-nohup node server.js >> /tmp/lamp_cloudcontrol.log 2>&1 &
-sleep 3
-curl -s http://localhost:3001/health
-# 返回 {"status":"ok"} 即表示服务正常运行
-```
-
-**验证服务运行**：
-```bash
-curl -s http://localhost:3001/health
-```
-
-### 调用拍照判题
-
-```bash
-curl -s -X POST http://localhost:3001/api/lamp/photo-judge | jq .
-```
-
-> ⚠️ 返回数据量大（包含 base64 图片），`jq` 可能截断。首次验证可先用：
-> ```bash
-> curl -s -X POST http://localhost:3001/api/lamp/photo-judge | jq '{success,judgeResult:.judgeResult[:2]}'
-> ```
-
-### 响应格式
-
-```json
-{
-  "success": true,
-  "photoBase64": "data:image/jpeg;base64,...",
-  "judgeResult": [
-    {
-      "question": "计算：2 + 3 × 4 = ?",
-      "is_right": "no",
-      "right_answer": "14",
-      "user_answer": "20",
-      "correction": "错误步骤定位与分析：用户忽略了运算顺序，先计算了加法再计算乘法"
-    }
-  ]
-}
-```
-
-- `is_right` 取值：`yes`（对）/ `no`（错）/ `maybe`（不确定）
-
-### 完整链路说明
-
-1. **拍照**：通过 MQTT 发送 `claw-skill → skill-take-photo` 到台灯摄像头
-2. **上传**：台灯拍摄后上传到文件服务器，返回 `objectname`
-3. **提交判题**：将图片 URL 提交到商汤 `paper-judge` API（带 `PAPER_JUDGE_TOKEN`）
-4. **返回结果**：聚合服务解析判题结果，返回每道题的对错、正确答案、用户答案、错因分析
-
-### 环境变量
-
-lamp_cloudcontrol 的 `.env` 位于：`~/.openclaw/workspace/imported/openclaw4lamp-main/lamp_cloudcontrol/.env`
-
-| 变量 | 说明 | 当前值 |
-|------|------|--------|
-| `SMART_LAMP_AUTH_TOKEN` | 台灯云端认证 Token（生产环境 sensejupiter.sensetime.com） | 复用 lightwing session.json 的 token |
-| `PAPER_JUDGE_TOKEN` | 商汤 paper-judge API Token | 固定值，联系商汤获取 |
-| `SMART_LAMP_DEVICE_ID` | 台灯 LDID | `SCCHI-ceff24dfde525542a0317b1b691b0564` |
-| `SMART_LAMP_PLAYER_ID` | 用户 ID | `5JQamGPen7Y` |
-| `PORT` | HTTP 服务端口 | `3001` |
-| `SMART_LAMP_FILESERVER_SOURCE` | 文件服务器来源 | `APP` |
-
-**MQTT 生产环境参数（已硬编码在 server.js）**：
-- Broker: `wss://sensejupiter.sensetime.com/mqtt4`
-- Signal topic: `senselink/company/1/device/{DEVICE_ID}/signal`
-- Status topic: `senselink/company/1/device/{DEVICE_ID}/status`
-
-**⚠️ 切换 TOKEN 时**：需同时更新 `session.json`（lightwing 登录用）和 `.env` 里的 `SMART_LAMP_AUTH_TOKEN`。
 
 ## 灯控执行路径（两条路，优先级正确）
 
