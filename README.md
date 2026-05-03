@@ -1,13 +1,27 @@
-### 
+# 说明
 这是元萝卜（YuanLuoBo）光翼灯/龙虾灯/SenseRobot Lamp的 OpenClaw Skills 框架
 
-包含最基本的安装 Skill (ylb-lamp-setup) 和测试 Skill（ylb-lamp-test），以及可以扩展到多个应用场景的使用 Skill (ylb-lamp-*)。
+## 官方技能地址
+元萝卜龙虾灯功能安装：
+https://github.com/SenseRobotClaw/lamp/tree/main/skills/ylb-lamp-setup
+元萝卜龙虾灯冒烟测试 ：
+https://github.com/SenseRobotClaw/lamp/tree/main/skills/ylb-lamp-test
+元萝卜龙虾灯2分钟正念练习：
+https://github.com/SenseRobotClaw/lamp/tree/main/skills/ylb-lamp-mind-breath
+元萝卜龙虾灯爱莎公主双语故事：
+https://github.com/SenseRobotClaw/lamp/tree/main/skills/ylb-lamp-elsa-story
+
+## 元萝卜龙虾灯命名规则
+* 基本功能安装 Skill (ylb-lamp-setup) 
+* 灯控冒烟测试 Skill（ylb-lamp-test）
+* 扩展到不同应用场景的应用 Skills (ylb-lamp-*)。
 例如：
 1. 讲故事 （ylb-lamp-elsa-story）
 2. 正念练习（ylb-lamp-mindbreath）
 
 统一使用 ylb-lam- 前缀，便于用户在各自终端上的查询
 
+## 安装次序
 这些 Skill 的安装次序必须是先安装 setup skill，接着再安装 test skill 以及其他的应用 skills。
 如果卸载光翼灯skill / 或退出登录，它会把 setup 及 session 还有用户的设备信息都删掉，那么其他的那些测试和应用的 Skill 就都不能工作了。
 
