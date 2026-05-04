@@ -1,65 +1,80 @@
 ---
-name: lamp-smoke-test
-description: 元萝卜光翼灯/龙虾灯（SenseRobotLamp）冒烟测试脚本，用于快速遍历台灯所有功能并验证是否正常工作。触发场景：用户说"冒烟测试"、"跑一遍灯的功能"、"测试台灯所有功能"、"快速测试灯"、或要求打包灯功能测试脚本时使用。
+name: ylb-lamp-test
+description: 测试元萝卜龙虾灯（ylb-lamp）功能，支持多种测试套件：极简测试（4步快速验证核心链路）、冒烟测试（12步完整灯控功能遍历）。用户未指定时默认推荐极简测试并告知耗时。遇到"测试台灯""跑一遍""冒烟测试""完整测试""快速测一下""验证功能""ylb-lamp test"等时使用。依赖 ylb-lamp-setup 完成的登录状态。
 ---
 
-# 光翼灯冒烟测试
+# ylb-lamp-test / 光翼灯冒烟测试
 
-## 功能描述
+## 套件注册表
 
-自动遍历光翼台灯全部功能，每项操作前通过 TTS 语音提示即将测试的内容，执行完成后语音播报结果。
+| 套件 | 触发词 | 脚本 | 耗时 |
+|------|--------|------|------|
+| 极简测试 | 快速测试 / 验一下 / 随便跑跑 / 4步测试 | scripts/mini_test.py | ~10s |
+| 冒烟测试 | 冒烟测试 / 完整测试 / 全部测试 / 12步测试 | scripts/smoke_test.py | ~60s |
 
-## 前置检查
+> 用户未明确指定时，默认推荐**极简测试**，告知预计耗时，询问是否继续。
+
+---
+
+## 执行规范
+
+### 1. 前置检查（每次执行前必做）
 
 ```bash
-SHARED=~/.openclaw/skills/.ylb-lamp
-SESSION=$SHARED/session.json
-SCRIPTS=~/.openclaw/skills/ylb-lamp-setup/scripts
+SKILL_DIR=~/.openclaw/skills/ylb-lamp-test
+TESTS=$SKILL_DIR/scripts
+SESSION=~/.openclaw/skills/.ylb-lamp/session.json
+DAEMON=~/.openclaw/skills/ylb-lamp-setup/scripts/lamp_daemon.py
 
-# 检查 session 是否存在
-if [ ! -f "$SESSION" ]; then
-    echo "❌ session.json 不存在，请先运行 ylb-lamp-setup 完成登录"
+# 检查 session
+[ -f "$SESSION" ] || {
+    echo "❌ session 不存在，请先运行 ylb-lamp-setup 完成登录"
     exit 1
-fi
+}
 
-# 检查 daemon 是否在跑，没跑就启动
+# 检查 daemon
 pgrep -f lamp_daemon.py > /dev/null || {
-    nohup python3 $SCRIPTS/lamp_daemon.py >> /tmp/lamp_daemon.log 2>&1 &
-    for i in $(seq 1 15); do
+    echo "daemon 未运行，正在启动..."
+    nohup python3 $DAEMON >> /tmp/lamp_daemon.log 2>&1 &
+    for i in $(seq 1 10); do
         sleep 1
         grep -q "MQTT连接 rc=Success" /tmp/lamp_daemon.log 2>/dev/null && break
     done
+    echo "daemon 已就绪"
 }
 ```
 
-## 使用方式
+### 2. 执行套件
 
 ```bash
-python3 scripts/lamp_smoke_test.py
+python3 $TESTS/<套件脚本名>
 ```
 
-## 测试流程（共12项）
+### 3. 执行后处理
 
-| 步骤 | 操作 | TTS 提示（执行前） | TTS 提示（执行后） |
-|------|------|-------------------|------------------|
-| 1 | 开灯 | "即将进行开灯测试，请注意" | "开灯测试成功" |
-| 2 | 音量→最大 | "即将测试音量调节，先调到最大" | "音量已调到最大" |
-| 3 | 音量→最小 | "即将测试音量调节，调到最小" | "音量已调到最小" |
-| 4 | 聚光模式 | "即将测试聚光模式，切换到专注阅读" | "已切换到专注阅读模式" |
-| 5 | 亮度→最大 | "即将测试亮度调节，调到最大" | "亮度已调到最大" |
-| 6 | 亮度→最小 | "即将测试亮度调节，调到最小" | "亮度已调到最小" |
-| 7 | 标准照明 | "即将切换到标准照明模式" | "已切换到标准照明模式" |
-| 8 | 亮度→最大 | "即将测试亮度调节，调到最大" | "亮度已调到最大" |
-| 9 | 亮度→最小 | "即将测试亮度调节，调到最小" | "亮度已调到最小" |
-| 10 | 色温→最冷 | "即将测试色温调节，调到最冷" | "色温已调到最冷" |
-| 11 | 色温→最暖 | "即将测试色温调节，调到最暖" | "色温已调到最暖" |
-| 12 | 关灯 | "即将进行关灯测试，请注意" | "关灯测试成功" |
+- 把终端输出**原文**告诉用户
+- 询问："每一步台灯都有响应吗？有没有哪步没反应？"
+- 用户反馈问题时，按以下顺序排查：
+  1. daemon 是否在跑：`pgrep -f lamp_daemon.py`
+  2. daemon 日志有无报错：`tail -20 /tmp/lamp_daemon.log`
+  3. session 是否有效（token 是否过期）
+  4. 队列文件是否可写：`echo test > /tmp/lamp_cmd_queue.txt`
 
-## 命令发送机制
+---
 
-脚本通过写队列文件 `/tmp/lamp_cmd_queue.txt` 发送指令，由 `lamp_daemon.py` 监听并通过 MQTT 发送到台灯。
+## 新增套件说明
 
-## 依赖
+新增测试套件只需两步，详见 `scripts/README.md`：
+1. 在 `scripts/` 目录新建脚本（使用 README 中的模板）
+2. 在本文件的套件注册表中加一行
 
-- `$SCRIPTS/lamp_daemon.py` 必须在运行中（MQTT 长连接守护进程）
-- TTS 语音提示在每项操作前后自动发送
+---
+
+## 常见问题
+
+| 现象 | 排查方向 |
+|------|----------|
+| 脚本跑完但灯没动 | daemon 未运行，或队列文件权限问题 |
+| TTS 没声音但灯有响应 | 音量是否被调到 0，或 TTS 内容超 150 字 |
+| 中途卡住不动 | `time.sleep` 等待期间正常，等完即继续 |
+| 报 FileNotFoundError | `/tmp/lamp_cmd_queue.txt` 路径权限问题，检查 /tmp 可写性 |
