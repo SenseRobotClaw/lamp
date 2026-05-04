@@ -93,7 +93,7 @@ def push_feishu(text):
     esc = text.replace('"', '\\"')
     os.system(f'{OPENCLAW} message send --channel feishu --target {FEISHU_TARGET} --message "{esc}" > /dev/null 2>&1')
 
-def mqtt_send(event, value=None, skill_val=None):
+def mqtt_send(event, value=None):
     global last_cmd
     # switch_device_onoff 永远不跳过（用户操作必须执行）
     key = f"{event}:{json.dumps(value) if value is not None else 'null'}"
@@ -103,9 +103,7 @@ def mqtt_send(event, value=None, skill_val=None):
     last_cmd = key
 
     data = {"event": event}
-    if skill_val is not None:
-        data["value"] = skill_val
-    elif value is not None:
+    if value is not None:
         data["value"] = value
 
     payload = {
@@ -131,7 +129,7 @@ def process_cmd_file():
         if content.startswith("tts:"):
             text = content[4:]
             log(f"[命令] TTS: {text[:30]}...")
-            mqtt_send("claw-skill", skill_val={"skill":"skill-tts-chinese","content":text})
+            mqtt_send("claw-skill", value={"skill":"skill-tts-chinese","content":text})
         elif content.startswith("{"):
             try:
                 cmd_data = json.loads(content)

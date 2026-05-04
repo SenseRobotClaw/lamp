@@ -32,25 +32,21 @@ https://github.com/SenseRobotClaw/lamp/tree/main/skills/ylb-lamp-elsa-story
 │
 ├── .ylb-lamp/                        ← 三个 Skill 共用的运行时数据（不进 git）
 │   ├── session.json                  ← 登录凭证（运行时生成）
-│   ├── device_info.json              ← 设备信息（运行时生成）
+│   └── device_info.json              ← 设备信息（运行时生成）
 │
 ├── ylb-lamp-setup/                   ← Skill 1：登录 & 初始化
 │   ├── SKILL.md
-│   └── scripts/                      ← 公共原子脚本（进 git）
-│       ├── lamp_daemon.py
-│       ├── lamp_photo.py
-│       └── lamp_cloudcontrol/
-│           ├── server.js
-│           ├── .env                  ← 不进 git
-│           └── .env.example          ← 进 git
-│   └── references/
-│       ├── auth-api.md
-│       ├── operations.md
-│       ├── environment.md
-│       ├── reporting.md
-│       ├── api-matrix.md
-│       └── trigger-map.md
-│
+│   ├── scripts/                      ← 公共原子脚本（进 git）
+│   │   ├── lamp_daemon.py
+│   │   ├── lamp_photo.py
+│   ├── references/
+│   │   ├── auth-api.md
+│   │   ├── operations.md
+│   │   ├── environment.md
+│   │   ├── reporting.md
+│   │   ├── api-matrix.md
+│   │   └── trigger-map.md
+│	│
 ├── ylb-lamp-test/                    ← Skill 2：功能测试
 │   ├── SKILL.md
 │   └── test_cases/                   ← 可选，测试用例
@@ -67,3 +63,137 @@ https://github.com/SenseRobotClaw/lamp/tree/main/skills/ylb-lamp-elsa-story
 
 # lamp_photo 数据 拍照临时存储（运行时生成）
 /tmp/lamp_photos/photo_YYYYMMDD_HHMMSS.jpg   ← 临时存储从台灯抓取的照片
+```
+
+## API 
+
+### MQTT 
+
+开关灯 MQTT 接口
+```                                                                                                   
+  Payload 格式    
+                                                                                                 
+  开灯：          
+  {
+    "timestamp": 1746461234,
+    "seq": "a3f7c2d18b094e51a068bc34e34ac5a7",
+    "signal": 7,                                                                                 
+    "data": {                                                                                    
+      "event": "switch_device_onoff",                                                            
+      "value": 1                                                                                 
+    }             
+  }                                                                                              
+                  
+  关灯：
+  {
+    "timestamp": 1746461234,
+    "seq": "a3f7c2d18b094e51a068bc34e34ac5a7",
+    "signal": 7,                                                                                 
+    "data": {   
+      "event": "switch_device_onoff",                                                            
+      "value": 0  
+    }                                                                                            
+  }
+                                                                                                 
+  队列文件写法    
+
+  # 开灯
+  echo 'switch_device_onoff:1' > /tmp/lamp_cmd_queue.txt                                         
+   
+  # 关灯                                                                                         
+  echo 'switch_device_onoff:0' > /tmp/lamp_cmd_queue.txt
+```                                                                     
+
+亮度 / 色温 / 显示模式 MQTT 接口                     
+ ```                                                                                                
+  Payload 格式                                                                                   
+                                                                                                 
+  {                                                                                              
+    "timestamp": 1746461234,                                                                     
+    "seq": "a3f7c2d18b094e51a068bc34e34ac5a7",                                                   
+    "signal": 7,                                                                                 
+    "data": {                                                                                    
+      "event": "adjust_brightness",                                                              
+      "value": {  
+        "brightness_mode": 0,
+        "brightness": 3,                                                                         
+        "temperature": 2
+      }                                                                                          
+    }             
+  }
+
+  字段取值
+
+  ┌─────────────────┬───────┬──────────────────────────────────────┐                             
+  │      字段       │ 取值  │                 说明                 │
+  ├─────────────────┼───────┼──────────────────────────────────────┤                             
+  │ brightness_mode │ 0 / 1 │ 0 = 泛光，1 = 聚光                   │
+  ├─────────────────┼───────┼──────────────────────────────────────┤
+  │ brightness      │ 1–5   │ 亮度，1 最暗，5 最亮                 │                             
+  ├─────────────────┼───────┼──────────────────────────────────────┤                             
+  │ temperature     │ 1–4   │ 色温，1 最冷，4 最暖；仅泛光模式有效 │                             
+  └─────────────────┴───────┴──────────────────────────────────────┘                             
+                  
+  队列文件写法                                                                                   
+                  
+  echo                                                                                           
+  '{"event":"adjust_brightness","value":{"brightness_mode":0,"brightness":3,"temperature":2}}' > 
+  /tmp/lamp_cmd_queue.txt                                                     
+```
+
+TTS 语音播报接口
+```                                                                                             
+  队列文件 /tmp/lamp_cmd_queue.txt 内容                                                          
+                                                                                                 
+  写法一（推荐简写）：                                                                           
+  tts:test阅读指令                                                                               
+                  
+  写法二（JSON 格式）：                                                                          
+  {"event": "claw-skill", "value": {"skill": "skill-tts-chinese", "content": "test阅读指令"}}
+                                                                                                 
+  两种写法 daemon 都能识别，最终发出的 MQTT payload 完全相同。                                   
+                                                                                                 
+  ---                                                                                            
+  最终发到 MQTT Broker 的 Payload                                                                
+                                                                                                 
+  {
+    "timestamp": 1746461234,                                                                     
+    "seq": "a3f7c2d18b094e51a068bc34e34ac5a7",
+    "signal": 7,                                                                                 
+    "data": {
+      "event": "claw-skill",                                                                     
+      "value": {                                                                                 
+        "skill": "skill-tts-chinese",
+        "content": "test阅读指令"                                                                
+      }           
+    }
+  }
+
+     
+```
+
+MQTT skill-take-photo 接口格式
+```
+  {                                                                                              
+    "timestamp": 1746461234,                                                                     
+    "seq": "a3f7c2d18b094e51a068bc34e34ac5a7",                                                   
+    "signal": 7,                                                                                 
+    "data": {                                                                                    
+      "event": "claw-skill",                                                                     
+      "value": {                                                                                 
+        "skill": "skill-take-photo"
+      }                                                                                          
+    }             
+  }
+
+    设备回包（监听 status topic）
+  {
+    "data": {                                                                                    
+      "skill-take-photo": {
+        "result": "success",                                                                     
+        "objectname": "<云端图片路径>"
+      }                                                                                          
+    }
+  }                                                                                              
+        
+```
